@@ -56,7 +56,7 @@ The inventory entry contains the item's metadata, cross-file references to image
 | 0x00 | 2 | LENGTH | Total size of this entry, including header and actions |
 | 0x02 | 2 | OBJECT_RENDER_LOOKUP | Bits 0-8 represent the index in the DAS's FAT Block 3 to apply to this object. If bit 9 is set, look up the object in `ADEMO.DAS` instead of the current map's `DEMO*.DAS`. |
 | 0x04 | 1 | CLOSEUP_TYPE | Type of close-up rendering/asset selection |
-| 0x05 | 1 | ITEM_TYPE | Item category (see values below) |
+| 0x05 | 1 | ITEM_TYPE_FLAGS | Item category (see values below) |
 | 0x06 | 1 | UNK_0x06 | Unknown BYTE |
 | 0x07 | 1 | UNK_0x07 | Unknown BYTE |
 | 0x08 | 4 | CLOSEUP_IMAGE_OFFSET | Offset into DBASE300 (animated close-up) |
@@ -90,7 +90,9 @@ Notes:
 - `NAME_OFFSET` points to a DBASE400 entry. DBASE400 entries are strings with a color/font field; see [Interfaces Lookup Section](#interfaces-lookup-section) for a brief on DBASE400 layout.
 - See [DBASE100_inventory_examples.md](DBASE100_inventory_examples.md) for examples
 
-ITEM_TYPE values:
+ITEM_TYPE_FLAGS values:
+
+ITEM_TYPE_FLAGS & 0x0F => Item category
 
 ```text
 0x00 - generic

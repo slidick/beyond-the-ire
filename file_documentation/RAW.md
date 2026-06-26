@@ -367,8 +367,8 @@ Each command can also have a COMMAND_MODIFIER. Most of the time this is 0x00, bu
 | 0x3E | 00 | 0x06 |  | Empty (Allow SFX) | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
 | 0x3F | 00 | 0x08 |  | Player Rotation | Flags/Rotation | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
 | 0x40 | 00 | 0x08 |  | Run Map Command | Command Index | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
-| 0x41 | 00 | 0x08 |  | Slow Player Speed | Flags/Speed Reduction | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
-| 0x42 | 00 | 0x08 |  | Take Inventory | Flags (Give Back) | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
+| 0x41 | 00 | 0x08 |  | Set Player Speed Reduction | Shift Value (1 = half, 2 = quarter, etc.) | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
+| 0x42 | 00 | 0x08 |  | Filter Inventory <br>hides items in inventory with ITEM_TYPE & 0x0F == 2<br>Note: this is used when entering Arqua to "remove" most items in the inventory. | Flag (0 = apply filter, 1 = disable filter) | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX | XXXXXXXXXXX |
 
 
 
