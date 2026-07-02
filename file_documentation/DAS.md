@@ -48,7 +48,8 @@ The DAS file header contains metadata about the file structure and offsets to va
 | 0x18 | 2 | FILE_NAMES_SECTION_SIZE | Size of filename section |
 | 0x1A | 2 | DIRECTIONAL_OBJECT_TABLE_SIZE | Size of the directional object table |
 | 0x1C | 4 | DIRECTIONAL_OBJECT_TABLE | Offset to the [directional object table](#directional-object-table) |
-| 0x20 | 4 | UNK_0x20 | Unknown field |
+| 0x20 | 2 | UNK_0x20 | Unknown field |
+| 0x22 | 2 | SKY_INDEX | Index that maps using this das should use for their empty/transparent 'sky' texture |
 | 0x24 | 4 | OBJECT_COLLISION_SECTION_OFFSET | Offset to the [section that defines collision boxes for objects](#object-collision-section) |
 | 0x28 | 4 | MONSTER_MAPPING_SECTION | Offset to the [section for mapping animations to monsters](#monster-mapping-section) |
 | 0x2C | 4 | MONSTER_MAPPING_SECTION_SIZE | Size of MONSTER_MAPPING_SECTION |
@@ -155,27 +156,39 @@ And here is the `FAT_ENTRY` itself:
 
 | Offset | Size | Field Name | Description |
 |--------|------|------------|-------------|
-| 0x00 | 4 | DATA_BLOCK_OFFSET | when image, this is absolute offset to data block within file<br>when enemy, it is an offset in another file (WIP) |
-| 0x04 | 2 | DATE_SIZE_BASE | This value is used to calculate the total size of the data block pointed to by DATA_BLOCK_OFFSET. The standard operation to be done is multiply by 2. In some scenarios, the value must instead be shifted to the left 4 bits (or multiplying it by `0x10`). |
+| 0x00 | 4 | DATA_BLOCK_OFFSET | when image, this is absolute offset to data block within file<br>when enemy or directional object, the value, although set, is unused (can be zeroed out with no effect) |
+| 0x04 | 2 | DATA_SIZE_BASE | This value is used to calculate the total size of the data block pointed to by DATA_BLOCK_OFFSET. The standard operation to be done is multiply by 2. For animations, the value must instead be shifted to the left 4 bits (or multiplying it by `0x10`). When the type is monster or directional object the size value is unused but still must be greater than 0. Size 4 is typically used |
 | 0x06 | 1 | FLAG_1 | Flags or type. (0x24 is monster) |
 | 0x07 | 1 | FLAG_2 | when FLAG_1 is 0x24, this is the index within the monster mapping section to apply to the object |
 
-#### FLAG_1 and FLAG_2 relation
+#### FLAG_1 Bit Flags
 
-| FLAG_1 | Description | Associated FLAG_2 meaning |
-| ------ | ----------- | -------------- |
-| 0x00 | Texture | `0x00`, `0x10`, `0x11`, `0x80` |
-| 0x02 | Sky texture | `0x00` |
-| 0x08 | | |
-| 0x20 | Directional Objects (Bullets) | index within directional object table |
-| 0x24 | Monster | index within monster mapping section |
-| 0x40 | | |
-| 0x80 | Items | |
-| 0x88 | | |
+| Bit | Name | Description |
+|-----|------|-------------|
+| 0   | Unknown | Unused? |
+| 1   | Sky | Set this bit to use the texture in the skybox. The texture's modifier value becomes a shift upward value for the skybox. Attempting to use a texture in the skybox without this bit set will cause minor rendering issues as well as having the skybox's draw height be dependent on the player's starting rotation |
+| 2   | Monster | Must also set bit 5 (directional object); FLAG_2 becomes index within monster mapping section |
+| 3   | Shift Origin | With this bit checked, an additional two 2-byte signed integers are added before the data block's offset. The first byte is an x-offset, the second a y-offset. Not included in the data size. These values will shift the draw origin of the texture. Can only be used on fat3 objects and fat4 directional/monster textures. Allows the alignment of different sized animations to a unified origin point. |
+| 4   | No Effect | Seems to be set only when the texture's BLOCK_TYPE_MODIFIER bit 4 is set (draw downward). No effect on its own |
+| 5   | Directional Object | Sprites with multiple viewing angles. FLAG_2 becomes index within directional object table |
+| 6   | No Effect | Again seems to be set only when the texture's BLOCK_TYPE_MODIFIER bit 6 is set (image pack). No effect on its own |
+| 7   | No Effect | Again seems to be set only when the texture's BLOCK_TYPE_MODIFIER bit 7 is set (half size). No effect on its own |
 
-| FLAG_2 | Description | Associated FLAG_1 meaning |
-| ------ | ----------- | -------------- |
-| 0x80 | 3D Object | `0x00` or `0x10` (pin to ceiling?) |
+#### FLAG_2 Bit Flags
+
+| Bit | Name | Description |
+|-----|------|-------------|
+| 0   | Delta Animation | Must be set for delta encoded animation textures |
+| 1   | Sub-image Animation | Must be set for sub-image encoded animation textures |
+| 2   | Unknown | Unused? |
+| 3   | Unknown | Unused? |
+| 4   | No Effect | Seems to be set only when the texture's BLOCK_TYPE bit 4 is set (unknown). No actual effect on its own |
+| 5   | Unknown | Unused? |
+| 6   | Unknown | Unused? |
+| 7   | No Effect | Again seems to be set only when the texture's BLOCK_TYPE bit 7 is set (3d object). No effect on its own |
+
+Again FLAG_2 instead becomes an index into the directional object mapping table or monster mapping table when the corresponding FLAG_1 bits are set.
+
 
 ## FAT Data Blocks Section (WIP)
 
@@ -183,7 +196,7 @@ Each block within the FAT Data Blocks section begins with two bytes of data iden
 
 The majority of the data contained here is image/texture data. 
 
-**Note:** Realms of the Haunting transposes its texture width and height. This means by parsing the raw texture data, all images will be rotated 90 degrees.
+**Note:** Realms of the Haunting transposes its textures. Textures displayed on floors and ceilings will be displayed as stored in the DAS file. Textures displayed on walls or as objects will be rotated 90 degrees clockwise then mirrored horizontally.
 
 The second byte is considered the data block_type and the first byte is considered the block_type_modifier. The naming is likely not completely accurate, because both bytes include type information. Generally, however the block_type is "what is the data and how is it read" and the block_type_modifier is "how does the engine use or place this".
 
@@ -204,6 +217,32 @@ Here are the main data block types and their associated BLOCK_TYPE and BLOCK_TYP
 | [Graphics Folder](#graphics-folder) | `0x40` only |  |
 | [3D Object](#3d-object) |  | `0x80` only |
 
+
+#### BLOCK_TYPE Bit Flags
+
+| Bit | Name | Description |
+|-----|------|-------------|
+| 0   | Animation | Set when the data is either a delta or sub-image animation |
+| 1   | Disable Pixel 0 Transparency | This only applies to textures when used on mid double-sided faces. Stops pixels with value zero from being fully transparent. Single sided faces will always have pixel zero be opaque while objects will always have pixel zero be transparent |
+| 2   | Enable Semi-transparency | Causes pixel values 128-255 to become semi-transparent |
+| 3   | Turn into Mirror | If bit 2 is set only transparent parts of the texture become a mirror |
+| 4   | Unknown | This flag is set all over the place but doesn't seem to do anything. Seems to be mostly set on wall and other vertical textures. Might be an old no longer used method of determining floor/ceiling vs wall textures |
+| 5   | Large Size | Can only be used on objects with the half-size modifier set. Causes objects to render at a large size |
+| 6   | Even Larger Size | Can only be used on objects with the half-size modifier set. Causes objects to render at an even larger size. Can be combined with bit 5 for a super large size object |
+| 7   | 3D Object | Set when the data is 3d object data |
+
+
+#### BLOCK_TYPE_MODIFIER Bit Flags
+
+| Bit | Name | Description |
+|-----|------|-------------|
+| 0-3 | Shift Downward | Value as 0-15. Shift fat3 objects and fat4 directional textures downward this many pixels |
+| 4   | Draw Downward/Pin Ceiling | Works only on objects and directional textures. Used to move the origin from the bottom center to the top center |
+| 5   | Unknown | Hides Object? Collision still works |
+| 6   | Image Pack | Used for both 3D object graphics folders as well as directional billboard objects |
+| 7   | Half Size | Works on objects and directional textures. Causes the texture to render at half-size |
+
+*Block Type Animation, Block Type 3D Object, and Block Type Modifier Image Pack are mutually exclusive.*
 
 ### Data formats for all data block types
 
@@ -253,7 +292,8 @@ The data has a header followed by an array of raw texture images.
 | 0x01 | 1 | BLOCK_TYPE | `0x10` for standard scaling, `0x20` for large scaling, and `0x40` for extra large scaling |
 | 0x02 | 2 | MAX_WIDTH | The max width of the textures |
 | 0x04 | 2 | MAX_HEIGHT | The max height of the textures |
-| 0x06 | 2 | UNK_0x08 |  |
+| 0x06 | 1 | OFFSETS_SIZE | For directional billboard objects this will always be 16 |
+| 0x07 | 1 | PACK_TYPE | For directional billboard objects bit 7 will be set. Other bits are unused |
 | 0x08 | 2 | DIR_1_IMG_REF | Packed image reference for first direction. Bit 15 is the horizontal mirror flag (1 = flipped). Bits 0-14 store the image data offset in units of 16 bytes. The actual byte offset is (value & `0x7FFF`) << 4, relative to the start of the data block. |
 | 0x0A | 2 | DIR_2_IMG_REF | Same as DIR_1_IMG_REF, but for direction 2 |
 | 0x0C | 2 | DIR_3_IMG_REF | Same as DIR_1_IMG_REF, but for direction 3 |
@@ -278,7 +318,8 @@ This special data type contains a grouping of related textures. Most commonly th
 | 0x01 | 1 | BLOCK_TYPE | either `0x10` or `0x12` TODO |
 | 0x02 | 2 | MAX_WIDTH | The max width of the textures |
 | 0x04 | 2 | MAX_HEIGHT | The max height of the textures |
-| 0x06 | 2 | UNK_0x06 |  |
+| 0x06 | 1 | OFFSETS_SIZE | Size of the offsets array |
+| 0x07 | 1 | PACK_TYPE | For graphics folders bit 7 will **not** be set. Other bits are unused |
 | 0x08 | ~ | SHIFTED_IMAGE_OFFSET_ARRAY | This is an array of 2-byte size values representing an offset to each of the contained images. This value must be shifted left 4 bits to get the offset. The offset is relative to the start of the data block.<br>The array is terminated by a 4 byte null value (`00 00 00 00`) and further aligned to 16 bytes. |
 | ~ | ~ | IMAGES | The remainder of the data block is the raw image data. Each image pointed to by the entries in SHIFTED_IMAGE_OFFSET_ARRAY is one of the Plain Texture formats (including the header). Each image is also aligned to 16 bytes. |
 
