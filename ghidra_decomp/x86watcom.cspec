@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  Watcom C/C++ (32-bit, register calling convention "-3r" / __watcall) compiler spec
+  for ROTH.EXE (x86:LE:32:default).
+
+  WHY THIS EXISTS
+  ROTH.EXE was built with Watcom C/C++ 10.x, whose DEFAULT convention passes the
+  first four integer/pointer arguments in EAX, EDX, EBX, ECX (in that order) and
+  returns in EAX (EDX:EAX for 64-bit). Ghidra's stock "borlandcpp" spec (the usual
+  stand-in) passes EAX, EDX, ECX (only THREE registers) and lists EBX as callee-saved,
+  so any argument Watcom placed in EBX is silently dropped by the decompiler. That
+  single mismatch is the root cause of the "scrambled" DOS/IO helper decompiles.
+
+  Derived from Ghidra's x86borland.cspec; the only substantive change is the default
+  prototype (__watcall) and EBX moving from <unaffected> to <killedbycall>. __cdecl /
+  __stdcall remain for the Watcom CRT / library functions that use the stack convention.
+
+  SCOPE / LIMITS
+  - Models the common scalar int/pointer case (covers the engine + the scrambled IO code).
+  - Does NOT model: floating-point args (387 stack), struct-by-value register packing,
+    or returns spread across 3+ registers / the carry flag. Those few functions still
+    need a per-function prototype/return-type override.
+-->
+
+<compiler_spec>
+  <data_organization>
+     <absolute_max_alignment value="0" />
+     <machine_alignment value="2" />
+     <default_alignment value="1" />
+     <default_pointer_alignment value="4" />
+     <pointer_size value="4" />
+     <wchar_size value="4" />
+     <short_size value="2" />
+     <integer_size value="4" />
+     <long_size value="4" />
+     <long_long_size value="8" />
+     <float_size value="4" />
+     <double_size value="8" />
+     <long_double_size value="10" /> <!-- aligned-length=12 -->
+     <size_alignment_map>
+          <entry size="1" alignment="1" />
+          <entry size="2" alignment="2" />
+          <entry size="4" alignment="4" />
+          <entry size="8" alignment="4" />
+     </size_alignment_map>
+  </data_organization>
+  <global>
+    <range space="ram"/>
+  </global>
+  <stackpointer register="ESP" space="ram"/>
+
+  <default_proto>
+    <prototype name="__watcall" extrapop="4" stackshift="4">
+      <input>
+        <pentry minsize="1" maxsize="4">
+          <register name="EAX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="EDX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="EBX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="4">
+          <register name="ECX"/>
+        </pentry>
+        <pentry minsize="1" maxsize="500" align="4">
+          <addr offset="4" space="stack"/>
+        </pentry>
+      </input>
+      <output>
+        <pentry minsize="1" maxsize="4">
+          <register name="EAX"/>
+        </pentry>
+        <pentry minsize="5" maxsize="8">
+          <addr space="join" piece1="EDX" piece2="EAX"/>
+        </pentry>
+      </output>
+      <unaffected>
+        <register name="ESP"/>
+        <register name="EBP"/>
+        <register name="ESI"/>
+        <register name="EDI"/>
+        <register name="DF"/>
+      </unaffected>
+      <killedbycall>
+        <register name="EAX"/>
+        <register name="EBX"/>
+        <register name="ECX"/>
+        <register name="EDX"/>
+      </killedbycall>
+    </prototype>
+  </default_proto>
+
+  <!-- Watcom CRT / library functions and anything explicitly compiled stack-based. -->
+  <prototype name="__cdecl" extrapop="4" stackshift="4">
+    <input>
+      <pentry minsize="1" maxsize="500" align="4">
+        <addr offset="4" space="stack"/>
+      </pentry>
+    </input>
+    <output>
+      <pentry minsize="1" maxsize="4">
+        <register name="EAX"/>
+      </pentry>
+      <pentry minsize="5" maxsize="8">
+        <addr space="join" piece1="EDX" piece2="EAX"/>
+      </pentry>
+    </output>
+    <unaffected>
+      <varnode space="ram" offset="0" size="4"/>
+      <register name="ESP"/>
+      <register name="EBP"/>
+      <register name="ESI"/>
+      <register name="EDI"/>
+      <register name="EBX"/>
+      <register name="DF"/>
+    </unaffected>
+    <killedbycall>
+      <register name="ECX"/>
+      <register name="EDX"/>
+    </killedbycall>
+  </prototype>
+
+  <prototype name="__stdcall" extrapop="unknown" stackshift="4">
+    <input>
+      <pentry minsize="1" maxsize="500" align="4">
+        <addr offset="4" space="stack"/>
+      </pentry>
+    </input>
+    <output>
+      <pentry minsize="1" maxsize="4">
+        <register name="EAX"/>
+      </pentry>
+    </output>
+    <unaffected>
+      <varnode space="ram" offset="0" size="4"/>
+      <register name="ESP"/>
+      <register name="EBP"/>
+      <register name="ESI"/>
+      <register name="EDI"/>
+      <register name="EBX"/>
+      <register name="DF"/>
+    </unaffected>
+    <killedbycall>
+      <register name="ECX"/>
+      <register name="EDX"/>
+    </killedbycall>
+  </prototype>
+
+  <resolveprototype name="__watcall/__cdecl">
+    <model name="__watcall"/>        <!-- prefer the register convention -->
+    <model name="__cdecl"/>
+  </resolveprototype>
+  <eval_current_prototype name="__watcall/__cdecl"/>
+</compiler_spec>
