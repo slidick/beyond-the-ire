@@ -398,17 +398,17 @@ The element object for SFX_NODES_ARRAY:
 | 0x02 | 2 (signed) | POSITION_Y | Y-coordinate of the SFX node |
 | 0x04 | 2 | SFX_INDEX | The index of the sound effect to play |
 | 0x06 | 2 | SFX_ID | The ID of this specific SFX node |
-| 0x08 | 1 | UNK_0x08 | 0x81 plays the sound continuously on loop. 0x01 only plays when activated (like from a command) |
+| 0x08 | 1 | FLAGS | Bit 0 - Loop; Bit 1 - Loop w/Random Delay; Bits 2-5 - Unused; Bit 6 - Unknown; Bit 7 - Autoplay |
 | 0x09 | 1 | SFX_ZONE_OBJECT_INDEX | The index within the SFX_ZONE_OBJECT_ARRAY to associate with this SFX node |
 | 0x0A | 2 | AUDIBLE_RADIUS | The distance from the node before it is no longer audible |
-| 0x0C | 2 | UNK_0x0C | TODO |
-| 0x0E | 2 | UNK_0x0E | TODO |
+| 0x0C | 2 | LOOP_DELAY | Used with the Loop w/Random Delay flag. Causes sound effect to loop a random time between 0 and this value |
+| 0x0E | 2 | UNK_0x0E | Unused? Always 0 |
 | 0x10 | 1 | VOLUME | The volume to play the sound at. Standard seems to be 0x40 |
-| 0x10 | 1 | UNK_0x11 | maybe padding? |
+| 0x10 | 1 | UNK_0x11 | Unknown. Only seen values 0 or 0x80 |
 
 ### SFX Zone Sub-Section
 
-This is an optional section containing SFX zone objects. An SFX node can optionally specify one of these zone objects. An SFX zone object can contain up to 3 defined SFX zones, which establish rectangular spaces in which an SFX node can be heard. When a player is outside of this zone, the audio from the SFX node can not be heard, regardless of the node's AUDIBLE_RADIUS.  
+This is an optional section containing SFX zone objects. An SFX node can optionally specify one of these zone objects. An SFX zone object can contain up to 3 defined SFX zones, which establish rectangular spaces in which an SFX node can either be allowed or be blocked.
 
 The size of this sub-section is NOT included in the size of the overall section's header. It IS, however, included in the section size of the file's header.
 
@@ -427,11 +427,24 @@ SFX_ZONE:
 
 | Offset | Size (bytes) | Field | Description |
 | ----------- | ----------- | ----------- | ----------- |
-| 0x00 | 2 | UNK_0x00 | This isn't fully known, but it somehow determines how/when to allow this zone to be active<br>When just 1 zone, the value 0x02FF works |
+| 0x00 | 1 | STRENGTH | Effects a zones ability to allow or block sounds (see description below) |
+| 0x01 | 1 | FLAGS | Bit 0 - Off = Allow Zone, On = Block Zone; Bit 1 - Unknown; Bits 2-7 - Unused |
 | 0x02 | 2 (signed) | X_BOUND_LOWER | The X distance from the SFX node to specify as the lower X bound of the rectangular zone |
 | 0x04 | 2 (signed) | Y_BOUND_LOWER | The Y distance from the SFX node to specify as the lower Y bound of the rectangular zone |
 | 0x06 | 2 (signed) | X_BOUND_UPPER | The X distance from the SFX node to specify as the upper X bound of the rectangular zone |
 | 0x08 | 2 (signed) | Y_BOUND_UPPER | The Y distance from the SFX node to specify as the upper Y bound of the rectangular zone |
+
+### Descriptions of sound effects and sound effect zones behavior
+
+A normal sound effect node with no zones attached works as follows. With a volume of 64 (0x40) the sound effect will play at max volume directly on the node and decrease in volume as the player moves toward the outer radius of the node. Increasing the volume above 64 toward the max of 255 doesn't increase the actual volume but instead increases the radius in which the sound effect can be heard at max volume, never going beyond the node's audible radius. This is particularly noticeable on sound effects with a very large audible radius.
+
+A sound effect with an allow zone attached works as follows. Firstly the sound effect can only be heard in the intersection of the zone and the node's audible radius. With a volume of 64 and a zone strength value of 255, the sound effect will be completely muted outside of the zone. The volume will still be affected by the player's distance from the center of the node. As you decrease the strength of the zone, the sound can begin to be heard outside of the zone. Likewise as you increase the volume above 64 and have a larger radius, the strength field might not be able to completely mute the sound outside of the zone, even at full 255 strength.
+
+A sound effect with a block zone attached works as follows. With a volume of 64 and a strength value of 255, the sound will be completely muted inside of the zone. As you lower the zone's strength, you can begin to hear the sound in the zone. Again, like with allow zones, increasing the node's volume above 64 causes the block zone's strength to become less effective, allowing sounds into the zone even with full 255 strength. Again this effect is more noticeable on nodes with very large radii.
+
+Each zone can have up to one allow and two block zones defined. (*Multiple allow zones will work but they must overlap to work making having more than one redundant*)
+
+
 
 ## Objects Section
 
